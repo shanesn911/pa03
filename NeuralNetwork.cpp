@@ -134,9 +134,6 @@ bool NeuralNetwork::contribute(double y, double p) {
         contribute(id, y, p);
     }
 
-
-    flush();
-
     return true;
 }
 // STUDENT TODO: IMPLEMENT
