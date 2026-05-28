@@ -107,7 +107,7 @@ NodeInfo* Graph::getNode(int id) const {
     }
     return nodes[id];
 }
-}
+
 
 // STUDENT TODO: IMPLEMENT
 void Graph::updateConnection(int v, int u, double w) {
