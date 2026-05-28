@@ -132,6 +132,11 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
         const double eps = 1e-9;
         double p_clamped = max(eps, min(1.0 - eps, p));
         outgoingContribution = -1 * ((y - p_clamped) / (p_clamped * (1.0 - p_clamped)));
+        
+        // FIX: The output node must also have its activation function derivative applied 
+        // to outgoingContribution and have its own delta recorded.
+        visitContributeNode(nodeId, outgoingContribution); 
+        
     } else {
         // Recursive case: recurse into neighbors first, then visit this node
         for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
