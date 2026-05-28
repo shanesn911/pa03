@@ -55,12 +55,10 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
         nodes[inputNodeIds[i]]->postActivationValue = input[i];
     }
 
-    // BFT
+    // BFT — start from input nodes' neighbors, not the input nodes themselves
     queue<int> q;
     unordered_set<int> visited;
 
-    // Start from input nodes' neighbors, not the input nodes themselves.
-    // Input nodes bypass activation — their postActivationValue is already set.
     for (int id : inputNodeIds) {
         visited.insert(id);
         for (auto& [destId, conn] : adjacencyList[id]) {
@@ -97,11 +95,10 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
     if (evaluating) {
         flush();
     } else {
-        // increment batch size
         batchSize++;
-        // accumulate derivatives
         contribute(instance.y, output.at(0));
-        // flush node values after backprop so next predict starts clean
+        // clear node values and contributions map for next predict,
+        // but leave batchSize and deltas intact for update()
         for (int i = 0; i < (int)nodes.size(); i++) {
             nodes.at(i)->postActivationValue = 0;
             nodes.at(i)->preActivationValue = 0;
@@ -115,7 +112,6 @@ bool NeuralNetwork::contribute(double y, double p) {
     for (int id : inputNodeIds) {
         contribute(id, y, p);
     }
-    // do NOT flush here — batchSize and deltas must persist until update() is called
     return true;
 }
 
@@ -124,7 +120,6 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
 
     double incomingContribution = 0;
     double outgoingContribution = 0;
-    NodeInfo* currNode = nodes.at(nodeId);
 
     // If already computed, return stored value (handles multiple paths to same node)
     if (contributions.find(nodeId) != contributions.end()) {
@@ -132,15 +127,18 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
     }
 
     if (adjacencyList.at(nodeId).empty()) {
-        // Base case: output node (no outgoing connections)
-        outgoingContribution = -1 * ((y - p) / (p * (1 - p)));
+        // Base case: output node — seed the backward pass with the initial error signal.
+        // Clamp p to avoid division by zero when p is exactly 0 or 1.
+        const double eps = 1e-9;
+        double p_clamped = max(eps, min(1.0 - eps, p));
+        outgoingContribution = -1 * ((y - p_clamped) / (p_clamped * (1.0 - p_clamped)));
     } else {
-        // Recursive case: visit each neighbor first, then this node
+        // Recursive case: recurse into neighbors first, then visit this node
         for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
             incomingContribution = contribute(destId, y, p);
             visitContributeNeighbor(conn, incomingContribution, outgoingContribution);
         }
-        // Input nodes do not have a bias to update, so skip visitContributeNode for them
+        // Input nodes do not have a bias to update
         bool isInputNode = false;
         for (int id : inputNodeIds) {
             if (id == nodeId) { isInputNode = true; break; }
@@ -181,11 +179,6 @@ bool NeuralNetwork::update() {
 // ----------- YOU DO NOT NEED TO TOUCH THE REMAINING CODE -----------------------------------------------------------------
 
 
-
-
-
-
-
 // Constructors
 NeuralNetwork::NeuralNetwork() : Graph(0) {
     learningRate = 0.1;
@@ -200,22 +193,15 @@ NeuralNetwork::NeuralNetwork(int size) : Graph(size) {
 }
 
 NeuralNetwork::NeuralNetwork(string filename) : Graph() {
-    // open file
     ifstream fin(filename);
-
-    // error check
     if (fin.fail()) {
         cerr << "Could not open " << filename << " for reading. " << endl;
         exit(1);
     }
-
-    // load network
     loadNetwork(fin);
     learningRate = 0.1;
     evaluating = false;
     batchSize = 0;
-
-    // close file
     fin.close();
 }
 
@@ -231,7 +217,8 @@ const vector<vector<int> >& NeuralNetwork::getLayers() const {
 }
 
 void NeuralNetwork::loadNetwork(istream& in) {
-    int numLayers(0), totalNodes(0), numNodes(0), weightModifications(0), biasModifications(0); string activationMethod = "identity";
+    int numLayers(0), totalNodes(0), numNodes(0), weightModifications(0), biasModifications(0);
+    string activationMethod = "identity";
     string junk;
     in >> numLayers; in >> totalNodes; getline(in, junk);
     if (numLayers <= 1) {
@@ -239,56 +226,44 @@ void NeuralNetwork::loadNetwork(istream& in) {
         exit(1);
     }
 
-    // resize network to accomodate expected nodes.
     resize(totalNodes);
     this->size = totalNodes;
 
     int currentNodeId(0);
-
     vector<int> previousLayer;
     vector<int> currentLayer;
+
     for (int i = 0; i < numLayers; i++) {
         currentLayer.clear();
-        //  For each layer
-
-        // get nodes for this layer and activation method
         in >> numNodes; in >> activationMethod; getline(in, junk);
 
         for (int j = 0; j < numNodes; j++) {
-            // For every node, add a new node to the network with proper activationMethod
-            // initialize bias to 0.
             updateNode(currentNodeId, NodeInfo(activationMethod, 0, 0));
-            // This node has an id of currentNodeId
             currentLayer.push_back(currentNodeId++);
         }
 
         if (i != 0) {
-            // There exists a previous layer, now we set out connections
             for (int k = 0; k < previousLayer.size(); k++) {
                 for (int w = 0; w < currentLayer.size(); w++) {
-
-                    // Initialize an initial weight of a sample from the standard normal distribution
                     updateConnection(previousLayer.at(k), currentLayer.at(w), sample());
                 }
             }
         }
 
-        // Crawl forward.
         previousLayer = currentLayer;
         layers.push_back(currentLayer);
     }
-    in >> weightModifications; getline(in, junk);
-    int v(0),u(0); double w(0), b(0);
 
-    // load weights by updating connections
+    in >> weightModifications; getline(in, junk);
+    int v(0), u(0); double w(0), b(0);
+
     for (int i = 0; i < weightModifications; i++) {
-        in >> v; in >> u; in >> w; getline(in , junk);
+        in >> v; in >> u; in >> w; getline(in, junk);
         updateConnection(v, u, w);
     }
 
-    in >> biasModifications; getline(in , junk);
+    in >> biasModifications; getline(in, junk);
 
-    // load biases by updating node info
     for (int i = 0; i < biasModifications; i++) {
         in >> v; in >> b; getline(in, junk);
         NodeInfo* thisNode = getNode(v);
@@ -319,11 +294,7 @@ void NeuralNetwork::visitPredictNeighbor(Connection c) {
     double w = c.weight;
     u->preActivationValue += v->postActivationValue * w;
     if (viz::isTracing()) {
-        viz::traceEdgeState(0, "forward",
-                            c.source,
-                            c.dest,
-                            c.weight,
-                            c.delta);
+        viz::traceEdgeState(0, "forward", c.source, c.dest, c.weight, c.delta);
         viz::traceNodeState(0, "forward", c.dest,
                             u->preActivationValue,
                             u->postActivationValue,
@@ -364,11 +335,7 @@ void NeuralNetwork::visitContributeNeighbor(Connection& c, double& incomingContr
     outgoingContribution += c.weight * incomingContribution;
     c.delta += incomingContribution * v->postActivationValue;
     if (viz::isTracing()) {
-        viz::traceEdgeState(0, "backward",
-                            c.source,
-                            c.dest,
-                            c.weight,
-                            c.delta);
+        viz::traceEdgeState(0, "backward", c.source, c.dest, c.weight, c.delta);
         viz::traceNodeState(0, "backward", c.source,
                             v->preActivationValue,
                             v->postActivationValue,
@@ -406,7 +373,6 @@ double NeuralNetwork::assess(DataLoader dl) {
         }
         count++;
     }
-
     if (dl.getData().empty()) {
         cerr << "Cannot assess accuracy on an empty dataset" << endl;
         exit(1);
@@ -415,15 +381,12 @@ double NeuralNetwork::assess(DataLoader dl) {
     return correct / count;
 }
 
-
 void NeuralNetwork::saveModel(string filename) {
     ofstream fout(filename);
-    
     fout << layers.size() << " " << getNodes().size() << endl;
     for (int i = 0; i < layers.size(); i++) {
         NodeInfo* layerNode = getNodes().at(layers.at(i).at(0));
         string activationType = getActivationIdentifier(layerNode->activationFunction);
-
         fout << layers.at(i).size() << " " << activationType << endl;
     }
 
@@ -434,7 +397,6 @@ void NeuralNetwork::saveModel(string filename) {
     for (int i = 0; i < nodes.size(); i++) {
         numBias++;
         biasStream << i << " " << nodes.at(i)->bias << endl;
-
         for (auto j = adjacencyList.at(i).begin(); j != adjacencyList.at(i).end(); j++) {
             numWeights++;
             weightStream << j->second.source << " " << j->second.dest << " " << j->second.weight << endl;
@@ -445,7 +407,6 @@ void NeuralNetwork::saveModel(string filename) {
     fout << weightStream.str();
     fout << numBias << endl;
     fout << biasStream.str();
-
     fout.close();
 }
 
