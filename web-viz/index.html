@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>pa03 Neural Network Viz</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: #fafafa;
+    }
+    header {
+      padding: 0.75rem 1rem;
+      background: #2c3e50;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    header h1 { margin: 0; font-size: 1.1rem; font-weight: 600; }
+    #status { font-size: 0.9rem; color: #bdc3c7; }
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    #toolbar {
+      padding: 0.5rem 1rem;
+      background: #ecf0f1;
+      border-bottom: 1px solid #bdc3c7;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    #toolbar button {
+      padding: 0.4rem 0.9rem;
+      font-size: 0.9rem;
+      border: 1px solid #bdc3c7;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    #toolbar button:hover:not(:disabled) { background: #e8e8e8; }
+    #toolbar button:disabled { opacity: 0.6; cursor: not-allowed; }
+    #modeToggle { margin-right: 0.5rem; }
+    #modeToggle button {
+      padding: 0.4rem 0.9rem;
+      font-size: 0.9rem;
+      border: 1px solid #bdc3c7;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+    }
+    #modeToggle button.active { background: #3498db; color: #fff; border-color: #2980b9; }
+    #eventCounter { margin-left: 0.5rem; }
+    .phaseIndicator {
+      padding: 0.35rem 0.75rem;
+      color: #fff;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: center;
+      text-transform: capitalize;
+      border-bottom: 1px solid #bdc3c7;
+    }
+    .phaseIndicator.predict { background: #27ae60; }
+    .phaseIndicator.contribute { background: #8e44ad; }
+    .phaseIndicator.update { background: #e67e22; }
+    #panels {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      border-right: 1px solid #bdc3c7;
+    }
+    .panel:last-child { border-right: none; }
+    .panelTitle {
+      padding: 0.4rem 0.75rem;
+      font-weight: 600;
+      font-size: 0.95rem;
+      background: #e8e8e8;
+      border-bottom: 1px solid #bdc3c7;
+    }
+    .panelContent {
+      flex: 1;
+      overflow: auto;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .panelContent svg { max-width: 100%; height: auto; }
+    .layer-box { fill: none; stroke-width: 2; }
+    .layer-box.input, .layer-box.output { stroke: #27ae60; fill: #d5f4e6; }
+    .layer-box.hidden { stroke: #e67e22; fill: #fdebd0; }
+    .layer-title { font-weight: 600; font-size: 16px; fill: #2c3e50; }
+    .layer-activation { font-size: 13px; fill: #7f8c8d; }
+    .node-circle { fill: #aed6f1; stroke: #2874a6; stroke-width: 2; }
+    .node-circle.node-highlight-current { fill: #f1c40f; stroke: #d4ac0d; stroke-width: 3; }
+    .node-circle.node-highlight-neighbor { fill: #e8daef; stroke: #9b59b6; stroke-width: 3; }
+    .node-circle.node-highlight-stack { fill: #e86a94; stroke: #c30f4b; stroke-width: 3; } /* red */
+    .node-circle.node-highlight-contribute-current { fill: #ffeb3b; stroke: #f9a825; stroke-width: 3; }
+    .node-label { font-size: 12px; fill: #1a5276; font-weight: 500; }
+    .node-value { font-size: 11px; fill: #34495e; }
+    .edge-line { stroke: #2c3e50; stroke-width: 1.5; fill: none; }
+    .edge-line.edge-highlight { stroke: #e74c3c; stroke-width: 2.5; }
+    .edge-line.edge-highlight-backward { stroke: #7e57c2; stroke-width: 2.5; }
+    .edge-weight { font-size: 12px; fill: #010911; } /* most black and most highlighted text */
+    .panelError { padding: 1rem; color: #c0392b; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>pa03 Neural Network Viz</h1>
+    <span id="status">Loading…</span>
+  </header>
+  <div id="main">
+    <div id="toolbar">
+      <div id="modeToggle">
+        <button type="button" id="btnEval" class="active">Evaluation</button>
+        <button type="button" id="btnTrain">Training</button>
+      </div>
+      <button type="button" id="prevBtn">Previous</button>
+      <button type="button" id="nextBtn">Next</button>
+      <button type="button" id="resetBtn">Reset</button>
+      <span id="eventCounter">Event 0 of 0</span>
+    </div>
+    <div id="panels">
+      <div class="panel">
+        <div class="panelTitle">Correct solution</div>
+        <div id="phaseIndicatorLeft" class="phaseIndicator predict">Phase: Predict</div>
+        <div class="panelContent" id="leftContent">
+          <svg id="graphLeft" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panelTitle">Your solution</div>
+        <div id="phaseIndicatorRight" class="phaseIndicator predict">Phase: Predict</div>
+        <div class="panelContent" id="rightContent">
+          <svg id="graphRight" xmlns="http://www.w3.org/2000/svg"></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="viewer.js"></script>
+</body>
+</html>
