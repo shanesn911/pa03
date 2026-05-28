@@ -157,7 +157,7 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
         // You do not need to understand this derivation.
         outgoingContribution = -1 * ((y - p) / (p * (1 - p)));
     } else {
-        for (auto [destId, conn] : adjacencyList.at(nodeId)) {
+        for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
             incomingContribution = contribute(destId, y, p);
             visitContributeNeighbor(adjacencyList.at(nodeId).at(destId), incomingContribution, outgoingContribution);
         }
@@ -176,7 +176,7 @@ bool NeuralNetwork::update() {
         nodes[i]->bias -= learningRate * (nodes[i]->delta / batchSize);
         nodes[i]->delta = 0;
 
-        for (auto [destId, conn] : adjacencyList[i]) {
+        for (auto& [destId, conn] : adjacencyList[i]) {
             conn.weight -= learningRate * (conn.delta / batchSize);
             conn.delta = 0;
         }
