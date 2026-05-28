@@ -127,16 +127,15 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
     }
 
     if (adjacencyList.at(nodeId).empty()) {
-        // Base case: output node
-      
-        double denom = p * (1.0 - p);
-        if (denom == 0.0) {
-            denom = 1e-9; 
+        
+        
+        double deriv = nodes.at(nodeId)->derive();
+        if (std::abs(deriv) < 1e-9) {
+            outgoingContribution = 0.0;  // saturated: skip update
+        } else {
+            outgoingContribution = (p - y) / deriv;
         }
-        
-        outgoingContribution = -1.0 * ((y - p) / denom);
-        
-        visitContributeNode(nodeId, outgoingContribution); 
+        visitContributeNode(nodeId, outgoingContribution);
     } else {
         // Recursive case: recurse into neighbors first, then visit this node
         for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
