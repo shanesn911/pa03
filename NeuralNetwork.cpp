@@ -116,36 +116,34 @@ bool NeuralNetwork::contribute(double y, double p) {
 }
 
 double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
-    visitContributeStart(nodeId); // don't remove this line, used for visualization
+    visitContributeStart(nodeId); 
 
-    double incomingContribution = 0;
-    double outgoingContribution = 0;
-
-    // If already computed, return stored value (handles multiple paths to same node)
+    // If already computed, return stored value to prevent recomputation
     if (contributions.find(nodeId) != contributions.end()) {
         return contributions.at(nodeId);
     }
 
+    double incomingContribution = 0;
+    double outgoingContribution = 0;
+
     if (adjacencyList.at(nodeId).empty()) {
-        
-        
-        double deriv = nodes.at(nodeId)->derive();
-        if (std::abs(deriv) < 1e-9) {
-            outgoingContribution = 0.0;  // saturated: skip update
-        } else {
-            outgoingContribution = (p - y) / deriv;
-        }
+        // Base case (Output Node): Standardized initial error signal.
+        outgoingContribution = -(y - p); 
         visitContributeNode(nodeId, outgoingContribution);
     } else {
-        // Recursive case: recurse into neighbors first, then visit this node
+        // Recursive case (DFS): Dive forward to neighbors first
         for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
             incomingContribution = contribute(destId, y, p);
             visitContributeNeighbor(conn, incomingContribution, outgoingContribution);
         }
+        
         // Input nodes do not have a bias to update
         bool isInputNode = false;
         for (int id : inputNodeIds) {
-            if (id == nodeId) { isInputNode = true; break; }
+            if (id == nodeId) { 
+                isInputNode = true; 
+                break; 
+            }
         }
         if (!isInputNode) {
             visitContributeNode(nodeId, outgoingContribution);
@@ -154,6 +152,7 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
 
     contributions[nodeId] = outgoingContribution;
     return outgoingContribution;
+
 }
 
 bool NeuralNetwork::update() {
