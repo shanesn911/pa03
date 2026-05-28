@@ -1,6 +1,9 @@
 // includes
+#include <queue>
+#include <unordered_set>
 #include "NeuralNetwork.hpp"
 #include "Trace.hpp"
+
 using namespace std;
 
 
@@ -10,13 +13,13 @@ using namespace std;
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::eval() {
     //stub
-    eval = true;
+    evaluating = true;
 }
 
 // STUDENT TODO: IMPLEMENT
 void NeuralNetwork::train() {
     //stub
-    eval = false;
+    evaluating = false;
 }
 
 // STUDENT TODO: IMPLEMENT
@@ -89,7 +92,7 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
             visitPredictNeighbor(conn);
 
             if(visited.find(destId) == visited.end()) {
-                visited.instert(destId);
+                visited.insert(destId);
                 q.push(destId);
             }
         }
