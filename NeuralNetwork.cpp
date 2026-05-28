@@ -116,22 +116,23 @@ bool NeuralNetwork::contribute(double y, double p) {
 }
 
 double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
-    visitContributeStart(nodeId); 
-
-    // If already computed, return stored value to prevent recomputation
-    if (contributions.find(nodeId) != contributions.end()) {
-        return contributions.at(nodeId);
-    }
+    visitContributeStart(nodeId); // Kept at the top for visualization tracking
 
     double incomingContribution = 0;
     double outgoingContribution = 0;
 
+    // If already computed, return stored value
+    if (contributions.find(nodeId) != contributions.end()) {
+        return contributions.at(nodeId);
+    }
+
     if (adjacencyList.at(nodeId).empty()) {
-        // Base case (Output Node): Standardized initial error signal.
-        outgoingContribution = -(y - p); 
+        // Base case (Output Node): Pure analytical BCE derivative without artificial clamping
+        outgoingContribution = (p - y) / (p * (1.0 - p));
+        
         visitContributeNode(nodeId, outgoingContribution);
     } else {
-        // Recursive case (DFS): Dive forward to neighbors first
+        // Recursive case (DFS)
         for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
             incomingContribution = contribute(destId, y, p);
             visitContributeNeighbor(conn, incomingContribution, outgoingContribution);
@@ -152,17 +153,19 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
 
     contributions[nodeId] = outgoingContribution;
     return outgoingContribution;
-
 }
 
 bool NeuralNetwork::update() {
     for (int i = 0; i < (int)nodes.size(); i++) {
-        nodes[i]->bias -= learningRate * (nodes[i]->delta / batchSize);
-        nodes[i]->delta = 0;
+        
+        // bias_new = bias_old - (lr * delta)
+        nodes[i]->bias -= learningRate * nodes[i]->delta;
+        nodes[i]->delta = 0.0;
 
         for (auto& [destId, conn] : adjacencyList[i]) {
-            conn.weight -= learningRate * (conn.delta / batchSize);
-            conn.delta = 0;
+            // weight_new = weight_old - (lr * delta)
+            conn.weight -= learningRate * conn.delta;
+            conn.delta = 0.0;
         }
     }
 
