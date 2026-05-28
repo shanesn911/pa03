@@ -1,0 +1,54 @@
+#ifndef UTILITY_HPP
+#define UTILITY_HPP
+
+// DO NOT MODIFY FUNCTIONS IN THIS FILE
+// YOU MAY ADD YOUR OWN NEW FUNCTIONS HERE
+
+#include <cmath>
+#include <string>
+#include <random>
+#include <iostream>
+// FuncSig is a type alias for a function pointer.
+// A function pointer holds the address of a function and allows it to be called indirectly.
+// FuncSig specifically refers to any function that takes a single double and returns a double.
+// This lets us store different activation functions (identity, ReLU, sigmoid) in the same variable
+// and call whichever one is needed at runtime — without needing to know in advance which one it is.
+//
+// Example: FuncSig f = ReLU;  // f now points to the ReLU function
+//          f(2.5);             // calls ReLU(2.5), returns 2.5
+//          f(-1.0);            // calls ReLU(-1.0), returns 0.0
+typedef double(* FuncSig)(double param);
+
+// Utility Functions
+
+// identity applies no activation to x. 
+double identity(double x);
+
+// ReLU returns x if x is greater than 0, and 0 otherwise
+// it is commonly used as an activation function in modern neural net architectures.
+double ReLU(double x);
+
+// sigmoid is defined as 1 / (1+e^(-x))
+// it is another commonly used activation function in modern neural net architectures.
+double sigmoid(double x);
+
+// step is the derivative of ReLU. It returns 1 for positive values, and 0 otherwise.
+// it is needed to compute the derivative for gradient descent.
+double step(double x);
+
+// derivative of sigmoid
+double sigmoid_prime(double x);
+
+double identity_prime(double x);
+
+FuncSig getActivationFunction(std::string identifier);
+
+FuncSig getActivationDerivative(std::string identifier);
+
+std::string getActivationIdentifier(FuncSig f);
+
+double sample();
+
+std::ostream& operator<<(std::ostream& out, std::vector<double> v);
+
+#endif
