@@ -67,6 +67,34 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
     // Use visitPredictNode and visitPredictNeighbor to handle the neural network math
     // at each step of your traversal.
 
+    for (int i = 0; i < inputNodeIds.size(); i++) {
+        nodes[inputNodeIds[i]]->postActivationValue = input[i];
+    }
+
+    queue<int> q;
+    unordered_set<int> visited;
+
+    for (int id : inputNodeIds) {
+        q.push(id);
+        visited.insert(id);
+    }
+
+    while (!q.empty()) {
+        int visitedId = q.front();
+        q.pop();
+
+        visitPredictNode(visitedId);
+
+        for (auto [destId, conn] : adjacencyList[visitedId]) {
+            visitPredictNeighbor(conn);
+
+            if(visited.find(destId) == visited.end()) {
+                visited.instert(destId);
+                q.push(destId);
+            }
+        }
+    }
+
     vector<double> output;
     for (int i = 0; i < outputNodeIds.size(); i++) {
         int dest = outputNodeIds.at(i);
@@ -95,6 +123,10 @@ bool NeuralNetwork::contribute(double y, double p) {
     // The contributions map acts as your "visited" set and also stores each node's
     // computed contribution so it is not recomputed if reached by multiple paths.
 
+    for (int id : inputNodeIds) {
+        contribute(id, y, p);
+    }
+
 
     flush();
 
@@ -111,22 +143,41 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
     NodeInfo* currNode = nodes.at(nodeId);
 
     // If this node is already in the contributions map, return its stored value immediately.
+    if (contributions.find(nodeId) != contributions.end()) {
+        return contributions.at(nodeId);
+    }
+
 
     if (adjacencyList.at(nodeId).empty()) {
         // Base case: output node (no outgoing connections).
         // Seeds the backward pass with the initial error signal.
         // You do not need to understand this derivation.
         outgoingContribution = -1 * ((y - p) / (p * (1 - p)));
+    } else {
+        for (auto [destId, conn] : adjacencyList.at(nodeId)) {
+            incomingContribution = contribute(destId, y, p);
+            visitContributeNeighbor(adjacencyList.at(nodeId).at(destId), incomingContribution, outgoingContribution);
+        }
+        visitContributeNode(nodeId, outgoingContribution);
+
     }
-
+    
     // Before returning, store outgoingContribution in the contributions map.
-
+    contributions[nodeId] = outgoingContribution;
     return outgoingContribution;
 }
 // STUDENT TODO: IMPLEMENT
 bool NeuralNetwork::update() {
     // apply the derivative contributions
+    for (int i = 0; i < nodes.size(); i++) {
+        nodes[i]->bias -= learningRate * (nodes[i]->delta / batchSize);
+        nodes[i]->delta = 0;
 
+        for (auto [destId, conn] : adjacencyList[i]) {
+            conn.weight -= learningRate * (conn.delta / batchSize);
+            conn.delta = 0;
+        }
+    }
     // traverse the graph in anyway you want. 
     // Each node has a delta term 
     // Each connection has a delta term
