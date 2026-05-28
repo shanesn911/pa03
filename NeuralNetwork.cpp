@@ -127,16 +127,16 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
     }
 
     if (adjacencyList.at(nodeId).empty()) {
-        // Base case: output node — seed the backward pass with the initial error signal.
-        // Clamp p to avoid division by zero when p is exactly 0 or 1.
-        const double eps = 1e-9;
-        double p_clamped = max(eps, min(1.0 - eps, p));
-        outgoingContribution = -1 * ((y - p_clamped) / (p_clamped * (1.0 - p_clamped)));
+        // Base case: output node
+      
+        double denom = p * (1.0 - p);
+        if (denom == 0.0) {
+            denom = 1e-9; 
+        }
         
-        // FIX: The output node must also have its activation function derivative applied 
-        // to outgoingContribution and have its own delta recorded.
+        outgoingContribution = -1.0 * ((y - p) / denom);
+        
         visitContributeNode(nodeId, outgoingContribution); 
-        
     } else {
         // Recursive case: recurse into neighbors first, then visit this node
         for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
