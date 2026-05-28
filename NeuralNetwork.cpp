@@ -78,8 +78,13 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
     unordered_set<int> visited;
 
     for (int id : inputNodeIds) {
-        q.push(id);
-        visited.insert(id);
+        for (auto& [destId, conn] : adjacencyList[id]) {
+            visitPredictNeighbor(conn);
+            if (visited.find(destId) == visited.end()) {
+                visited.insert(destId);
+                q.push(destId);
+            }
+        }
     }
 
     while (!q.empty()) {
@@ -88,10 +93,9 @@ vector<double> NeuralNetwork::predict(DataInstance instance) {
 
         visitPredictNode(visitedId);
 
-        for (auto [destId, conn] : adjacencyList[visitedId]) {
+        for (auto& [destId, conn] : adjacencyList[visitedId]) {
             visitPredictNeighbor(conn);
-
-            if(visited.find(destId) == visited.end()) {
+            if (visited.find(destId) == visited.end()) {
                 visited.insert(destId);
                 q.push(destId);
             }
