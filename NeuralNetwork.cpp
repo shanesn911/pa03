@@ -138,7 +138,7 @@ double NeuralNetwork::contribute(int nodeId, const double& y, const double& p) {
         // Recursive case: visit each neighbor first, then this node
         for (auto& [destId, conn] : adjacencyList.at(nodeId)) {
             incomingContribution = contribute(destId, y, p);
-            visitContributeNeighbor(adjacencyList.at(nodeId).at(destId), incomingContribution, outgoingContribution);
+            visitContributeNeighbor(conn, incomingContribution, outgoingContribution);
         }
         // Input nodes do not have a bias to update, so skip visitContributeNode for them
         bool isInputNode = false;
